@@ -1,0 +1,8 @@
+PySide6==6.7.2
+pandas
+openpyxl
+xlsxwriter
+sqlalchemy
+psycopg2-binary
+python-dotenv
+pyyaml
