@@ -2,6 +2,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
     QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QDialog, QSplitter, QInputDialog
+
 )
 from PySide6.QtCore import Qt
 
@@ -22,17 +23,21 @@ class CustomerOrderView(QWidget):
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
 
+        # Панель кнопок
         btn_layout = QHBoxLayout()
+
         self.btn_add_order = QPushButton("Новый заказ")
         self.btn_add_item = QPushButton("Добавить изделие")
         self.btn_edit_order = QPushButton("Редактировать заказ")
-        self.btn_delete_order = QPushButton("Удалить заказ")
+        self.btn_delete_order = QPushButton("Удалить выбранный заказ")
+        self.btn_delete_all = QPushButton("Удалить ВСЕ заказы")   # ← Новая кнопка
         self.btn_refresh = QPushButton("Обновить")
 
         self.btn_add_order.clicked.connect(self.add_order)
         self.btn_add_item.clicked.connect(self.add_item_to_order)
         self.btn_edit_order.clicked.connect(self.edit_order)
         self.btn_delete_order.clicked.connect(self.delete_order)
+        self.btn_delete_all.clicked.connect(self.delete_all_orders)   # ← Подключение
         self.btn_refresh.clicked.connect(self.refresh_all)
 
         btn_layout.addWidget(self.btn_add_order)
@@ -40,10 +45,12 @@ class CustomerOrderView(QWidget):
         btn_layout.addWidget(self.btn_edit_order)
         btn_layout.addWidget(self.btn_delete_order)
         btn_layout.addStretch()
+        btn_layout.addWidget(self.btn_delete_all)   # ← Добавлена в layout
         btn_layout.addWidget(self.btn_refresh)
 
         main_layout.addLayout(btn_layout)
 
+        # Splitter
         splitter = QSplitter(Qt.Vertical)
 
         self.order_table = QTableWidget()
@@ -71,6 +78,8 @@ class CustomerOrderView(QWidget):
 
         self.refresh_all()
 
+    # ... (все остальные методы остаются без изменений до refresh_all)
+
     def refresh_all(self):
         self.refresh_order_table()
         self.items_table.setRowCount(0)
@@ -81,20 +90,17 @@ class CustomerOrderView(QWidget):
         self.order_table.setRowCount(len(orders))
 
         for row, order in enumerate(orders):
-            # Расчёт общей суммы заказа (пока упрощённо)
             total_value = self.calculate_order_value(order.id)
-
             self.order_table.setItem(row, 0, QTableWidgetItem(str(order.id)))
             self.order_table.setItem(row, 1, QTableWidgetItem(str(order.order_date)))
             self.order_table.setItem(row, 2, QTableWidgetItem(str(order.customer_id)))
             self.order_table.setItem(row, 3, QTableWidgetItem(str(order.currency)))
-            self.order_table.setItem(row, 4, QTableWidgetItem(f"{order.discount_percent}%"))
+            self.order_table.setItem(row, 4, QTableWidgetItem(f"{order.discount_percent:.1f}%"))
             self.order_table.setItem(row, 5, QTableWidgetItem(f"{total_value:.2f}"))
             self.order_table.setItem(row, 6, QTableWidgetItem(str(order.status)))
-            self.order_table.setItem(row, 7, QTableWidgetItem(f"{order.advance_percent}%"))
+            self.order_table.setItem(row, 7, QTableWidgetItem(f"{order.advance_percent:.1f}%"))
 
     def calculate_order_value(self, order_id: str) -> float:
-        """Расчёт общей суммы заказа"""
         items = self.item_controller.get_items_by_order(order_id)
         total = 0.0
         for item in items:
@@ -136,24 +142,22 @@ class CustomerOrderView(QWidget):
 
     def add_item_to_order(self):
         if not self.current_order_id:
-            QMessageBox.warning(self, "Внимание", "Сначала выберите заказ")
+            QMessageBox.warning(self, "Внимание", "Сначала выберите заказ в верхней таблице")
             return
 
         dialog = CustomerOrderItemDialog(self, self.current_order_id)
         if dialog.exec() == QDialog.Accepted:
             self.refresh_items_table()
-            self.refresh_order_table()   # обновляем сумму заказа
+            self.refresh_order_table()
 
     def edit_item(self):
-        # Двойной клик по позиции
         current_row = self.items_table.currentRow()
         if current_row < 0:
             return
         item_id = int(self.items_table.item(current_row, 0).text())
 
-        # Пока простой диалог изменения количества
         qty, ok = QInputDialog.getDouble(self, "Изменить количество", "Новое количество:", 1.0, 0.01, 10000, 2)
-        if ok:
+        if ok and qty > 0:
             if self.item_controller.update_item(item_id, qty):
                 self.refresh_items_table()
                 self.refresh_order_table()
@@ -163,6 +167,7 @@ class CustomerOrderView(QWidget):
         if row < 0:
             QMessageBox.warning(self, "Внимание", "Выберите заказ")
             return
+
         order_id = self.order_table.item(row, 0).text()
         order = self.controller.get_order_by_id(order_id)
         if order:
@@ -178,8 +183,41 @@ class CustomerOrderView(QWidget):
 
         order_id = self.order_table.item(row, 0).text()
         reply = QMessageBox.question(self, "Удаление", 
-                                     f"Удалить заказ {order_id} и все позиции?", 
+                                     f"Удалить заказ {order_id} и все его позиции?", 
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             if self.controller.delete_order(order_id):
+                self.refresh_all()
+
+    def delete_all_orders(self):
+        """Удаление всех заказов с подтверждением"""
+        reply = QMessageBox.question(
+            self, 
+            "Подтверждение удаления", 
+            "Вы действительно хотите удалить ВСЕ заказы и все их позиции?\n\n"
+            "Это действие нельзя отменить!",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # Дополнительное подтверждение
+            second_reply = QMessageBox.question(
+                self, 
+                "Финальное подтверждение", 
+                "Вы уверены? Будут удалены все заказы и все позиции.",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+
+            if second_reply == QMessageBox.Yes:
+                # Удаляем все заказы через контроллер
+                orders = self.controller.get_all_orders()
+                deleted = 0
+                for order in orders:
+                    if self.controller.delete_order(order.id):
+                        deleted += 1
+
+                QMessageBox.information(self, "Удаление завершено", 
+                                      f"Удалено {deleted} заказов и все их позиции.")
                 self.refresh_all()
