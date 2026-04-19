@@ -30,22 +30,22 @@ def get_session():
 
 def init_db(drop_all=False):
     """Инициализация базы данных"""
-    # Явно импортируем ВСЕ модели перед созданием таблиц
-    from src.database.models import (
-        Customer,
-        Product,
-        CustomerOrder,
-        CustomerOrderItem
-    )
-
     if drop_all:
         print("⚠️  Удаляем все существующие таблицы...")
         Base.metadata.drop_all(bind=engine)
-
-    Base.metadata.create_all(bind=engine)
     
+    # Явно импортируем ВСЕ модели
+    from src.database.models import (
+        Customer, 
+        Product, 
+        CustomerOrder, 
+        CustomerOrderItem,
+        ExchangeRate          # ← Добавили
+    )
+    
+    Base.metadata.create_all(bind=engine)
     print("✅ База данных успешно инициализирована.")
-    print("   Таблицы: customers, products, customer_orders, customer_order_items")
+    print("   Таблицы: customers, products, customer_orders, customer_order_items, exchange_rates")
 
 
 if __name__ == "__main__":

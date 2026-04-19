@@ -2,7 +2,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
     QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QDialog, QSplitter, QInputDialog
-
 )
 from PySide6.QtCore import Qt
 
@@ -10,6 +9,7 @@ from src.controllers.customer_order_controller import CustomerOrderController
 from src.controllers.customer_order_item_controller import CustomerOrderItemController
 from src.views.customer_order_dialog import CustomerOrderDialog
 from src.views.customer_order_item_dialog import CustomerOrderItemDialog
+from src.utils.excel_handler import ExcelHandler
 
 
 class CustomerOrderView(QWidget):
@@ -17,6 +17,7 @@ class CustomerOrderView(QWidget):
         super().__init__()
         self.controller = CustomerOrderController()
         self.item_controller = CustomerOrderItemController()
+        self.excel_handler = ExcelHandler()
         self.current_order_id = None
         self.setup_ui()
 
@@ -29,24 +30,30 @@ class CustomerOrderView(QWidget):
         self.btn_add_order = QPushButton("Новый заказ")
         self.btn_add_item = QPushButton("Добавить изделие")
         self.btn_edit_order = QPushButton("Редактировать заказ")
-        self.btn_delete_order = QPushButton("Удалить выбранный заказ")
-        self.btn_delete_all = QPushButton("Удалить ВСЕ заказы")   # ← Новая кнопка
+        self.btn_delete_order = QPushButton("Удалить заказ")
+        self.btn_delete_all = QPushButton("Удалить ВСЕ заказы")
         self.btn_refresh = QPushButton("Обновить")
+        self.btn_export = QPushButton("Экспорт в Excel")   # ← Вернули
+        self.btn_import = QPushButton("Импорт из Excel")   # ← Вернули
 
         self.btn_add_order.clicked.connect(self.add_order)
         self.btn_add_item.clicked.connect(self.add_item_to_order)
         self.btn_edit_order.clicked.connect(self.edit_order)
         self.btn_delete_order.clicked.connect(self.delete_order)
-        self.btn_delete_all.clicked.connect(self.delete_all_orders)   # ← Подключение
+        self.btn_delete_all.clicked.connect(self.delete_all_orders)
         self.btn_refresh.clicked.connect(self.refresh_all)
+        self.btn_export.clicked.connect(self.export_to_excel)   # ← Подключили
+        self.btn_import.clicked.connect(self.import_from_excel) # ← Подключили
 
         btn_layout.addWidget(self.btn_add_order)
         btn_layout.addWidget(self.btn_add_item)
         btn_layout.addWidget(self.btn_edit_order)
         btn_layout.addWidget(self.btn_delete_order)
+        btn_layout.addWidget(self.btn_delete_all)
         btn_layout.addStretch()
-        btn_layout.addWidget(self.btn_delete_all)   # ← Добавлена в layout
         btn_layout.addWidget(self.btn_refresh)
+        btn_layout.addWidget(self.btn_export)
+        btn_layout.addWidget(self.btn_import)
 
         main_layout.addLayout(btn_layout)
 
@@ -77,8 +84,6 @@ class CustomerOrderView(QWidget):
         main_layout.addWidget(splitter)
 
         self.refresh_all()
-
-    # ... (все остальные методы остаются без изменений до refresh_all)
 
     def refresh_all(self):
         self.refresh_order_table()
@@ -190,34 +195,34 @@ class CustomerOrderView(QWidget):
                 self.refresh_all()
 
     def delete_all_orders(self):
-        """Удаление всех заказов с подтверждением"""
         reply = QMessageBox.question(
             self, 
-            "Подтверждение удаления", 
-            "Вы действительно хотите удалить ВСЕ заказы и все их позиции?\n\n"
-            "Это действие нельзя отменить!",
+            "Подтверждение", 
+            "Удалить ВСЕ заказы и все их позиции?\n\nЭто действие нельзя отменить!",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
 
         if reply == QMessageBox.Yes:
-            # Дополнительное подтверждение
             second_reply = QMessageBox.question(
                 self, 
                 "Финальное подтверждение", 
-                "Вы уверены? Будут удалены все заказы и все позиции.",
+                "Вы уверены? Будут удалены все данные заказов.",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )
-
             if second_reply == QMessageBox.Yes:
-                # Удаляем все заказы через контроллер
                 orders = self.controller.get_all_orders()
                 deleted = 0
                 for order in orders:
                     if self.controller.delete_order(order.id):
                         deleted += 1
-
-                QMessageBox.information(self, "Удаление завершено", 
-                                      f"Удалено {deleted} заказов и все их позиции.")
+                QMessageBox.information(self, "Удалено", f"Удалено {deleted} заказов.")
                 self.refresh_all()
+
+    def export_to_excel(self):
+        self.excel_handler.export_customer_orders_full(self)
+
+    def import_from_excel(self):
+        if self.excel_handler.import_customer_orders(self):
+            self.refresh_all()

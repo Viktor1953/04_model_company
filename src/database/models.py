@@ -54,3 +54,12 @@ class CustomerOrderItem(Base):
     # Связи
     order = relationship("CustomerOrder", back_populates="items")
     product = relationship("Product")
+
+    # Добавьте в конец файла src/database/models.py
+
+class ExchangeRate(Base):
+    __tablename__ = "exchange_rates"
+
+    date = Column(Date, primary_key=True)
+    currency = Column(String, primary_key=True)   # "EUR", "RUB" и т.д.
+    rate_to_usd = Column(Float, nullable=False)   # сколько единиц валюты за 1 USD
