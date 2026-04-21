@@ -35,7 +35,7 @@ def generate_company_name():
     return f"{adj} {noun} {suffix}"
 
 
-def generate_customers(count: int = 22):
+def generate_customers(count: int = 5): # 22
     """Генерирует указанное количество клиентов"""
     controller = CustomerController()
     created = 0
@@ -65,7 +65,7 @@ if __name__ == "__main__":
             if choice.lower() == 'q':
                 break
             count = int(choice)
-            if 20 <= count <= 25:
+            if 20 <= count <= 25: # 20 - 25
                 generate_customers(count)
                 break
             else:

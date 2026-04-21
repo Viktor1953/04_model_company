@@ -74,7 +74,7 @@ def generate_products(count: int = 18):
 if __name__ == "__main__":
     try:
         count = int(input("Сколько изделий создать? (15-25): ") or 18)
-        if 15 <= count <= 25:
+        if 15 <= count <= 25: # 15 - 25
             generate_products(count)
         else:
             print("Количество должно быть от 15 до 25.")

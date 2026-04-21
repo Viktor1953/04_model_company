@@ -75,12 +75,12 @@ class MainWindow(QMainWindow):
         self.customer_tab = CustomerView()
         self.product_tab = ProductView()
         self.order_tab = CustomerOrderView()
-        # self.analytics_tab = AnalyticsView()          # ← Новая вкладка
+        self.analytics_tab = AnalyticsView()          # ← Новая вкладка
 
         self.tabs.addTab(self.customer_tab, "Клиенты")
         self.tabs.addTab(self.product_tab, "Изделия")
         self.tabs.addTab(self.order_tab, "Заказы Клиента")
-        # self.tabs.addTab(self.analytics_tab, "Аналитика")   # ← Добавлена
+        self.tabs.addTab(self.analytics_tab, "Аналитика")   # ← Добавлена
 
         # === Статусная строка ===
         self.status_label = QLabel(f"Текущий период: {self.current_period}")
@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
             self.customer_tab.refresh_table()
             self.product_tab.refresh_table()
             self.order_tab.refresh_all()
-            # self.analytics_tab.refresh_all()        # ← Обновляем аналитику
+            self.analytics_tab.refresh_all()        # ← Обновляем аналитику
         except Exception as e:
             print(f"Ошибка при обновлении данных: {e}")
 
