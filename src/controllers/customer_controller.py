@@ -34,22 +34,21 @@ class CustomerController:
         finally:
             session.close()
 
-    def update_customer(self, customer_id: str, company: str, distance_km: float) -> bool:
-        session = get_session()
-        try:
-            customer = session.query(Customer).filter(Customer.id == customer_id).first()
+    def update_customer(self, customer_id: str, company: str, distance_km: float):
+        """Обновление данных клиента"""
+        with get_session() as db:
+            customer = db.query(Customer).filter(Customer.id == customer_id).first()
             if customer:
                 customer.company = company
                 customer.distance_km = distance_km
-                session.commit()
+                db.commit()
                 return True
-            return False
-        except Exception as e:
-            print(f"Ошибка обновления клиента: {e}")
-            session.rollback()
-            return False
-        finally:
-            session.close()
+        return False
+
+    def get_customer_by_id(self, customer_id: str):
+        """Получить клиента по ID"""
+        with get_session() as db:
+            return db.query(Customer).filter(Customer.id == customer_id).first()
 
     def delete_customer(self, customer_id: str) -> bool:
         session = get_session()

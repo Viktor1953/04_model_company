@@ -1,220 +1,241 @@
 # src/utils/excel_handler.py
 import pandas as pd
-from datetime import datetime
-from pathlib import Path
 from PySide6.QtWidgets import QFileDialog, QMessageBox
-from openpyxl.styles import Font, PatternFill, Alignment
+from datetime import datetime
 
 from src.controllers.customer_controller import CustomerController
 from src.controllers.product_controller import ProductController
-from src.controllers.customer_order_controller import CustomerOrderController
-from src.controllers.customer_order_item_controller import CustomerOrderItemController
+from src.controllers.supplier_controller import SupplierController
+from src.controllers.product_component_controller import ProductComponentController
 
 
 class ExcelHandler:
     def __init__(self):
-        self.output_dir = Path("data/output")
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.customer_controller = CustomerController()
+        self.product_controller = ProductController()
+        self.supplier_controller = SupplierController()
+        self.component_controller = ProductComponentController()
 
-    # ====================== ЭКСПОРТ ЗАКАЗОВ (с двумя листами) ======================
-    def export_customer_orders_full(self, parent=None):
-        """Экспорт заказов с двумя листами: заголовки + детали"""
-        try:
-            order_controller = CustomerOrderController()
-            item_controller = CustomerOrderItemController()
+    # ====================== CUSTOMERS ======================
+    def export_customers(self, parent=None):
+        customers = self.customer_controller.get_all_customers()
+        if not customers:
+            QMessageBox.warning(parent, "Экспорт", "Нет данных для экспорта клиентов.")
+            return
 
-            orders = order_controller.get_all_orders()
+        data = [{"ID": c.id, "Компания": c.company, "Расстояние км": c.distance_km} for c in customers]
+        df = pd.DataFrame(data)
 
-            if not orders:
-                QMessageBox.information(parent, "Инфо", "Нет заказов для экспорта")
-                return False
-
-            # Подготовка данных для заголовков
-            orders_data = []
-            items_data = []
-
-            for order in orders:
-                total_value = self._calculate_order_value(order.id, item_controller)
-
-                orders_data.append({
-                    "ID": order.id,
-                    "Дата": order.order_date,
-                    "ID Клиента": order.customer_id,
-                    "Валюта": order.currency,
-                    "Скидка %": order.discount_percent,
-                    "Сумма заказа": total_value,
-                    "Статус": order.status,
-                    "Аванс %": order.advance_percent
-                })
-
-                # Детали заказа
-                items = item_controller.get_items_by_order(order.id)
-                for item in items:
-                    total_item = item.qty * (item.product.unit_price if item.product else 0)
-                    items_data.append({
-                        "ID Заказа": order.id,
-                        "ID Изделия": item.product_id,
-                        "Название": item.product.name if item.product else "—",
-                        "Кол-во": item.qty,
-                        "Ед.изм.": item.product.uom if item.product else "—",
-                        "Цена": item.product.unit_price if item.product else 0,
-                        "Сумма позиции": total_item
-                    })
-
-            # Создаём Excel-файл с двумя листами
-            file_path = self._get_save_path("Полные_Заказы", parent)
-            if not file_path:
-                return False
-
-            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                # Лист 1 — Заголовки заказов
-                pd.DataFrame(orders_data).to_excel(writer, sheet_name="Customer_Orders", index=False)
-                # Лист 2 — Позиции заказов
-                pd.DataFrame(items_data).to_excel(writer, sheet_name="Order_Items", index=False)
-
-                # Форматирование заголовков
-                self._format_header(writer.sheets["Customer_Orders"])
-                self._format_header(writer.sheets["Order_Items"])
-
-            QMessageBox.information(parent, "Успех", 
-                                  f"Заказы успешно экспортированы в файл:\n{file_path}\n\n"
-                                  f"Листы: Customer_Orders и Order_Items")
-            return True
-
-        except Exception as e:
-            QMessageBox.critical(parent, "Ошибка", f"Ошибка экспорта заказов:\n{str(e)}")
-            return False
-
-    def _calculate_order_value(self, order_id: str, item_controller) -> float:
-        items = item_controller.get_items_by_order(order_id)
-        total = 0.0
-        for item in items:
-            total += item.qty * (item.product.unit_price if item.product else 0)
-        return total
-
-    # ====================== Вспомогательные методы ======================
-    def _get_save_path(self, name: str, parent=None):
-        default_name = f"tem_{name}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-        file_path, _ = QFileDialog.getSaveFileName(
-            parent,
-            f"Сохранить {name}",
-            str(self.output_dir / default_name),
+        filename, _ = QFileDialog.getSaveFileName(
+            parent, "Сохранить клиентов", 
+            f"customers_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx", 
             "Excel Files (*.xlsx)"
         )
-        return file_path if file_path else None
-
-    def _format_header(self, worksheet):
-        header_font = Font(bold=True, color="FFFFFF")
-        header_fill = PatternFill(start_color="1f538d", end_color="1f538d", fill_type="solid")
-
-        for cell in worksheet[1]:
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = Alignment(horizontal="center")
-
-    # ====================== Старые методы (оставляем для совместимости) ======================
-    def export_customers(self, customers_list: list, parent=None):
-        # ... (оставляем как было)
-        pass
-
-    def export_products(self, products_list: list, parent=None):
-        # ... (оставляем как было)
-        pass
+        if filename:
+            try:
+                df.to_excel(filename, index=False, sheet_name="Customers")
+                QMessageBox.information(parent, "Успех", f"Клиенты успешно экспортированы в:\n{filename}")
+            except Exception as e:
+                QMessageBox.critical(parent, "Ошибка", f"Не удалось сохранить файл:\n{str(e)}")
 
     def import_customers(self, parent=None):
-        # ... (оставляем как было)
-        pass
+        filename, _ = QFileDialog.getOpenFileName(parent, "Выберите файл клиентов", "", "Excel Files (*.xlsx)")
+        if not filename:
+            return False
+        try:
+            df = pd.read_excel(filename, sheet_name="Customers")
+            imported = 0
+            for _, row in df.iterrows():
+                try:
+                    self.customer_controller.create_customer(
+                        company=str(row.get("Компания", "")),
+                        distance_km=float(row.get("Расстояние км", 0))
+                    )
+                    imported += 1
+                except:
+                    continue
+            QMessageBox.information(parent, "Импорт", f"Импортировано {imported} клиентов.")
+            return True
+        except Exception as e:
+            QMessageBox.critical(parent, "Ошибка", f"Не удалось импортировать клиентов:\n{str(e)}")
+            return False
+
+    # ====================== PRODUCTS ======================
+    def export_products(self, parent=None):
+        products = self.product_controller.get_all_products()
+        if not products:
+            QMessageBox.warning(parent, "Экспорт", "Нет данных для экспорта изделий.")
+            return
+
+        data = [{
+            "ID": p.id,
+            "Название": p.name,
+            "Ед.изм.": p.uom,
+            "Цена": p.unit_price,
+            "Валюта": p.currency
+        } for p in products]
+
+        df = pd.DataFrame(data)
+        filename, _ = QFileDialog.getSaveFileName(
+            parent, "Сохранить изделия", 
+            f"products_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx", 
+            "Excel Files (*.xlsx)"
+        )
+        if filename:
+            df.to_excel(filename, index=False, sheet_name="Products")
+            QMessageBox.information(parent, "Успех", f"Изделия успешно экспортированы.")
 
     def import_products(self, parent=None):
-        # ... (оставляем как было)
-        pass
+        filename, _ = QFileDialog.getOpenFileName(parent, "Выберите файл изделий", "", "Excel Files (*.xlsx)")
+        if not filename:
+            return False
+        try:
+            df = pd.read_excel(filename, sheet_name="Products")
+            imported = 0
+            for _, row in df.iterrows():
+                try:
+                    self.product_controller.create_product(
+                        name=str(row.get("Название", "")),
+                        uom=str(row.get("Ед.изм.", "pcs")),
+                        unit_price=float(row.get("Цена", 0)),
+                        currency=str(row.get("Валюта", "USD"))
+                    )
+                    imported += 1
+                except:
+                    continue
+            QMessageBox.information(parent, "Импорт", f"Импортировано {imported} изделий.")
+            return True
+        except Exception as e:
+            QMessageBox.critical(parent, "Ошибка", f"Не удалось импортировать изделия:\n{str(e)}")
+            return False
 
-    def import_customer_orders(self, parent=None):
-        """Импорт заказов с созданием новых ID (чтобы избежать конфликта duplicate key)"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            parent, "Импорт заказов клиентов", "", "Excel Files (*.xlsx *.xls)"
+    # ====================== SUPPLIERS ======================
+    def export_suppliers(self, parent=None):
+        suppliers = self.supplier_controller.get_all_suppliers()
+        if not suppliers:
+            QMessageBox.warning(parent, "Экспорт", "Нет данных для экспорта поставщиков.")
+            return
+
+        data = [{
+            "ID": s.id,
+            "Компания": s.company_name,
+            "Валюта": s.currency,
+            "Расстояние км": s.distance_km,
+            "Надёжность": s.reliability_score
+        } for s in suppliers]
+
+        df = pd.DataFrame(data)
+        filename, _ = QFileDialog.getSaveFileName(
+            parent, "Сохранить поставщиков", 
+            f"suppliers_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx", 
+            "Excel Files (*.xlsx)"
         )
-        if not file_path:
+        if filename:
+            df.to_excel(filename, index=False, sheet_name="Suppliers")
+            QMessageBox.information(parent, "Успех", f"Поставщики успешно экспортированы.")
+
+    def import_suppliers(self, parent=None):
+        filename, _ = QFileDialog.getOpenFileName(parent, "Выберите файл поставщиков", "", "Excel Files (*.xlsx)")
+        if not filename:
+            return False
+        try:
+            df = pd.read_excel(filename, sheet_name="Suppliers")
+            imported = 0
+            for _, row in df.iterrows():
+                try:
+                    self.supplier_controller.create_supplier(
+                        company_name=str(row.get("Компания", "")),
+                        currency=str(row.get("Валюта", "USD")),
+                        distance_km=float(row.get("Расстояние км", 100)),
+                        reliability_score=float(row.get("Надёжность", 0.85))
+                    )
+                    imported += 1
+                except:
+                    continue
+            QMessageBox.information(parent, "Импорт", f"Импортировано {imported} поставщиков.")
+            return True
+        except Exception as e:
+            QMessageBox.critical(parent, "Ошибка", f"Не удалось импортировать поставщиков:\n{str(e)}")
+            return False
+
+    # ====================== PRODUCT COMPONENTS ======================
+    def export_product_components(self, parent=None):
+        """Экспорт состава изделий с понятными колонками"""
+        components = self.component_controller.get_all_components()
+        if not components:
+            QMessageBox.warning(parent, "Экспорт", "Нет данных для экспорта состава изделий.")
+            return
+
+        data = [{
+            "ID Компонента": c.id,
+            "ID Изделия": c.product_id,
+            "Название Изделия": getattr(c, 'product_name', '') or c.product_id,
+            "Название Компонента": c.component_name,
+            "MCR/GU": c.mcr_gu,
+            "Производственные потери %": c.manufacturing_losses_pct,
+            "Неисправимый брак %": c.scrap_pct,
+            "TMC/GU": c.tmc_gu,
+            "Ед.изм.": c.uom,
+            "Примечания": c.notes or ""
+        } for c in components]
+
+        df = pd.DataFrame(data)
+
+        filename, _ = QFileDialog.getSaveFileName(
+            parent,
+            "Сохранить состав изделий",
+            f"product_components_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+
+        if filename:
+            try:
+                df.to_excel(filename, index=False, sheet_name="ProductComponents")
+                QMessageBox.information(parent, "Успех", 
+                                      f"Состав изделий успешно экспортирован в:\n{filename}")
+            except Exception as e:
+                QMessageBox.critical(parent, "Ошибка", f"Не удалось сохранить файл:\n{str(e)}")
+
+    def import_product_components(self, parent=None):
+        """Импорт состава изделий из Excel"""
+        filename, _ = QFileDialog.getOpenFileName(
+            parent,
+            "Выберите файл состава изделий",
+            "",
+            "Excel Files (*.xlsx)"
+        )
+        if not filename:
             return False
 
         try:
-            excel_file = pd.ExcelFile(file_path)
-            sheet_names = excel_file.sheet_names
+            df = pd.read_excel(filename, sheet_name="ProductComponents")
+            
+            required = ["ID Изделия", "Название Компонента", "MCR/GU"]
+            missing = [col for col in required if col not in df.columns]
+            if missing:
+                QMessageBox.warning(parent, "Ошибка импорта", 
+                                    f"Отсутствуют обязательные колонки: {missing}")
+                return False
 
-            # Читаем листы
-            if "Customer_Orders" in sheet_names:
-                df_orders = pd.read_excel(excel_file, "Customer_Orders")
-            else:
-                df_orders = pd.read_excel(excel_file, sheet_name=0)
-
-            if "Order_Items" in sheet_names:
-                df_items = pd.read_excel(excel_file, "Order_Items")
-            else:
-                df_items = pd.DataFrame()
-
-            df_orders.columns = [str(col).strip() for col in df_orders.columns]
-            if not df_items.empty:
-                df_items.columns = [str(col).strip() for col in df_items.columns]
-
-            order_controller = CustomerOrderController()
-            item_controller = CustomerOrderItemController()
-
-            success_orders = 0
-            success_items = 0
-            order_id_mapping = {}   # Старый ID → Новый ID
-
-            # 1. Импорт заголовков с генерацией новых ID
-            for _, row in df_orders.iterrows():
+            imported = 0
+            for _, row in df.iterrows():
                 try:
-                    customer_id = str(row.get("ID Клиента", row.get("Customer ID", ""))).strip()
-                    if not customer_id:
-                        continue
-
-                    currency = str(row.get("Валюта", "USD")).strip()
-                    discount = float(row.get("Скидка %", 0))
-                    status = str(row.get("Статус", "Quotation")).strip()
-                    advance = float(row.get("Аванс %", 0))
-
-                    # Создаём новый заказ с новым ID
-                    new_order_id = order_controller.create_order(
-                        customer_id=customer_id,
-                        currency=currency,
-                        discount_percent=discount,
-                        status=status,
-                        advance_percent=advance
+                    self.component_controller.create_component(
+                        product_id=str(row.get("ID Изделия", "")),
+                        component_name=str(row.get("Название Компонента", "")),
+                        mcr_gu=float(row.get("MCR/GU", 0)),
+                        manufacturing_losses_pct=float(row.get("Производственные потери %", 0)),
+                        scrap_pct=float(row.get("Неисправимый брак %", 0)),
+                        uom=str(row.get("Ед.изм.", "pcs")),
+                        notes=str(row.get("Примечания", "")) if pd.notna(row.get("Примечания")) else None
                     )
-
-                    if new_order_id:
-                        success_orders += 1
-                        # Сохраняем соответствие старого ID → нового ID
-                        old_order_id = str(row.get("ID", "")).strip()
-                        if old_order_id:
-                            order_id_mapping[old_order_id] = new_order_id
-
-                        # 2. Импорт позиций для этого заказа
-                        if not df_items.empty and old_order_id:
-                            order_items = df_items[
-                                df_items.get("ID Заказа", df_items.get("Order ID", "")) == old_order_id
-                            ]
-                            for _, item_row in order_items.iterrows():
-                                try:
-                                    product_id = str(item_row.get("ID Изделия", item_row.get("Product ID", ""))).strip()
-                                    qty = float(item_row.get("Кол-во", item_row.get("Qty", 0)))
-                                    if product_id and qty > 0:
-                                        item_controller.add_item(new_order_id, product_id, qty)
-                                        success_items += 1
-                                except:
-                                    continue
-                except Exception as e:
-                    print(f"Ошибка импорта заказа: {e}")
+                    imported += 1
+                except Exception as inner_e:
+                    print(f"Пропущена строка: {inner_e}")
                     continue
 
-            msg = f"Импорт завершён успешно!\n\n"
-            msg += f"Создано новых заказов: {success_orders}\n"
-            msg += f"Добавлено позиций изделий: {success_items}\n\n"
-            msg += f"Старые ID заказов были заменены на новые."
-
-            QMessageBox.information(parent, "Импорт завершён", msg)
+            QMessageBox.information(parent, "Импорт", 
+                                    f"Успешно импортировано {imported} компонентов в состав изделий.")
             return True
 
         except Exception as e:

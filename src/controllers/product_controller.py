@@ -40,24 +40,23 @@ class ProductController:
         finally:
             session.close()
 
-    def update_product(self, product_id: str, name: str, uom: str, unit_price: float, currency: str) -> bool:
-        session = get_session()
-        try:
-            product = session.query(Product).filter(Product.id == product_id).first()
+    def get_product_by_id(self, product_id: str):
+        """Получить изделие по ID для редактирования"""
+        with get_session() as db:
+            return db.query(Product).filter(Product.id == product_id).first()
+
+    def update_product(self, product_id: str, name: str, uom: str, unit_price: float, currency: str):
+        """Обновление данных изделия"""
+        with get_session() as db:
+            product = db.query(Product).filter(Product.id == product_id).first()
             if product:
                 product.name = name
                 product.uom = uom
                 product.unit_price = unit_price
                 product.currency = currency
-                session.commit()
+                db.commit()
                 return True
-            return False
-        except Exception as e:
-            print(f"Ошибка обновления изделия: {e}")
-            session.rollback()
-            return False
-        finally:
-            session.close()
+        return False
 
     def delete_product(self, product_id: str) -> bool:
         session = get_session()

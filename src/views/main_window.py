@@ -8,6 +8,8 @@ from PySide6.QtCore import Qt
 from src.views.customer_view import CustomerView
 from src.views.product_view import ProductView
 from src.views.customer_order_view import CustomerOrderView
+from src.views.supplier_view import SupplierView
+from src.views.product_component_view import ProductComponentView   # ← Новая вкладка
 from src.views.analytics_view import AnalyticsView
 from src.models.periods import create_period
 
@@ -16,7 +18,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Технико-экономическая модель — Машиностроение SMB")
-        self.resize(1450, 880)
+        self.resize(1550, 950)
 
         self.current_period = create_period("strategic")
 
@@ -55,15 +57,10 @@ class MainWindow(QMainWindow):
 
         main_layout.addLayout(top_panel)
 
-        # === Заголовок приложения ===
+        # === Заголовок ===
         title = QLabel("Технико-экономическая модель")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("""
-            font-size: 26px; 
-            font-weight: bold; 
-            margin: 12px 0;
-            color: #2c3e50;
-        """)
+        title.setStyleSheet("font-size: 26px; font-weight: bold; margin: 12px 0; color: #2c3e50;")
         main_layout.addWidget(title)
 
         # === Вкладки ===
@@ -75,12 +72,16 @@ class MainWindow(QMainWindow):
         self.customer_tab = CustomerView()
         self.product_tab = ProductView()
         self.order_tab = CustomerOrderView()
-        self.analytics_tab = AnalyticsView()          # ← Новая вкладка
+        self.supplier_tab = SupplierView()
+        self.component_tab = ProductComponentView()      # ← Новая вкладка
+        self.analytics_tab = AnalyticsView()
 
         self.tabs.addTab(self.customer_tab, "Клиенты")
         self.tabs.addTab(self.product_tab, "Изделия")
         self.tabs.addTab(self.order_tab, "Заказы Клиента")
-        self.tabs.addTab(self.analytics_tab, "Аналитика")   # ← Добавлена
+        self.tabs.addTab(self.supplier_tab, "Поставщики")
+        self.tabs.addTab(self.component_tab, "Состав изделий")   # ← Добавлена
+        self.tabs.addTab(self.analytics_tab, "Аналитика")
 
         # === Статусная строка ===
         self.status_label = QLabel(f"Текущий период: {self.current_period}")
@@ -97,8 +98,6 @@ class MainWindow(QMainWindow):
         period_map = ["strategic", "tactical", "operational", "past_3m"]
         self.current_period = create_period(period_map[index])
         self.status_label.setText(f"Текущий период: {self.current_period}")
-        
-        # Обновляем все вкладки при смене периода
         self.refresh_all()
 
     def refresh_all(self):
@@ -107,10 +106,11 @@ class MainWindow(QMainWindow):
             self.customer_tab.refresh_table()
             self.product_tab.refresh_table()
             self.order_tab.refresh_all()
-            self.analytics_tab.refresh_all()        # ← Обновляем аналитику
+            self.supplier_tab.refresh_table()
+            self.component_tab.refresh_table()      # ← Обновляем состав изделий
+            self.analytics_tab.refresh_all()
         except Exception as e:
             print(f"Ошибка при обновлении данных: {e}")
 
     def get_current_period(self):
-        """Возвращает текущий выбранный период"""
         return self.current_period
